@@ -12,6 +12,8 @@ module idex_reg #(
   //////////////////////////////////////
   input clk,
 
+  input stopclk,
+
   input [DATA_WIDTH-1:0] id_PC,
   input [DATA_WIDTH-1:0] id_pc_plus_4,
 
@@ -77,26 +79,75 @@ module idex_reg #(
 );
 
 // TODO: Implement ID/EX pipeline register module
+
   always@(posedge clk) begin
-    ex_PC <= id_PC;
-    ex_pc_plus_4 <=id_pc_plus_4;
-    ex_branch <= id_branch;
-    ex_aluop <= id_aluop;
-    ex_alusrc <= id_alusrc;
-    ex_jump <= id_jump;
-    ex_memread <= id_memread;
-    ex_memwrite <= id_memwrite;
-    ex_memtoreg <= id_memtoreg;
-    ex_regwrite <= id_regwrite;
-    ex_sextimm <= id_sextimm;
-    ex_funct7 <= id_funct7;
-    ex_funct3 <= id_funct3;
-    ex_readdata1 <= id_readdata1;
-    ex_readdata2 <= id_readdata2;
-    ex_rs1 <= id_rs1;
-    ex_rs2 <= id_rs2;
-    ex_rd <= id_rd;
-    ex_opcode <= id_opcode;
+    casex(stopclk)
+      1'b1: begin
+        ex_PC <= ex_PC;
+        ex_pc_plus_4 <=ex_pc_plus_4;
+        ex_branch <= ex_branch;
+        ex_aluop <= ex_aluop;
+        ex_alusrc <= ex_alusrc;
+        ex_jump <= ex_jump; 
+        ex_memread <= ex_memread;
+        ex_memwrite <= ex_memwrite;
+        ex_memtoreg <= ex_memtoreg;
+        ex_regwrite <= ex_regwrite;
+        ex_sextimm <= ex_sextimm;
+        ex_funct7 <= ex_funct7;
+        ex_funct3 <= ex_funct3;
+        ex_readdata1 <= ex_readdata1;
+        ex_readdata2 <= ex_readdata2;
+        ex_rs1 <= ex_rs1;
+        ex_rs2 <= ex_rs2;
+        ex_rd <= ex_rd;
+        ex_opcode <= ex_opcode;
+      end
+      default: begin
+        ex_PC <= id_PC;
+        ex_pc_plus_4 <=id_pc_plus_4;
+        ex_branch <= id_branch;
+        ex_aluop <= id_aluop;
+        ex_alusrc <= id_alusrc;
+        ex_jump <= id_jump; 
+        ex_memread <= id_memread;
+        ex_memwrite <= id_memwrite;
+        ex_memtoreg <= id_memtoreg;
+        ex_regwrite <= id_regwrite;
+        ex_sextimm <= id_sextimm;
+        ex_funct7 <= id_funct7;
+        ex_funct3 <= id_funct3;
+        ex_readdata1 <= id_readdata1;
+        ex_readdata2 <= id_readdata2;
+        ex_rs1 <= id_rs1;
+        ex_rs2 <= id_rs2;
+        ex_rd <= id_rd;
+        ex_opcode <= id_opcode;
+      end
+    endcase
+    //else의 경우 아무것도 안하면 latching
   end
+
+  // always@(posedge clk) begin
+  //   ex_PC <= id_PC;
+  //   ex_pc_plus_4 <=id_pc_plus_4;
+  //   ex_branch <= id_branch;
+  //   ex_aluop <= id_aluop;
+  //   ex_alusrc <= id_alusrc;
+  //   ex_jump <= id_jump;
+  //   ex_memread <= id_memread;
+  //   ex_memwrite <= id_memwrite;
+  //   ex_memtoreg <= id_memtoreg;
+  //   ex_regwrite <= id_regwrite;
+  //   ex_sextimm <= id_sextimm;
+  //   ex_funct7 <= id_funct7;
+  //   ex_funct3 <= id_funct3;
+  //   ex_readdata1 <= id_readdata1;
+  //   ex_readdata2 <= id_readdata2;
+  //   ex_rs1 <= id_rs1;
+  //   ex_rs2 <= id_rs2;
+  //   ex_rd <= id_rd;
+  //   ex_opcode <= id_opcode;
+  // end
 
 endmodule

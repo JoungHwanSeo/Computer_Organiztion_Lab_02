@@ -21,6 +21,12 @@ module simple_cpu
 ///////////////////////////////////////////////////////////////////////////////
 // e.g., wire [DATA_WIDTH-1:0] if_pc_plus_4;
 
+wire stopclk;  ///latching위한 signal!!!
+
+// wire realclk;  //PC, IF/ID , ID/EX에 들어가는 clk
+
+// assign realclk = (stopclk) ? 0 : clk; ///////디버깅시 이거 작동 체크!!!!!!
+
 
 wire [DATA_WIDTH-1:0] IF_PC_PLUS_4;  //IF에서 PC+4값을 저장할 곳
 wire [DATA_WIDTH-1:0] IF_instruction; //일단 예측된 PC에서 바로 나온 instruction
@@ -173,11 +179,34 @@ adder m_pc_plus_4_adder(
   .result (IF_PC_PLUS_4)
 );
 
+
+////원래이거
+// always @(posedge clk) begin
+//   if (rstn == 1'b0) begin
+//     PC <= 32'h00000000;
+//   end
+//   else PC <= NEXT_PC;
+// end
+
 always @(posedge clk) begin
   if (rstn == 1'b0) begin
     PC <= 32'h00000000;
+    // stopclk <= 0; //stall signal 초기화!!!
   end
-  else PC <= NEXT_PC;
+  else begin
+    if(!stopclk) begin
+      PC <= NEXT_PC;
+    end
+    else begin
+      PC <= PC;
+    end
+  end
+  // else if(stopclk) begin
+  //   PC <= PC;  //latching
+  // end
+  // else begin
+  //   PC <= NEXT_PC;
+  // end
 end
 
 ////////나중에 고쳐야함!!!!!///control hazard해결해야해서...
@@ -200,6 +229,8 @@ ifid_reg m_ifid_reg(
   .if_pc_plus_4   (IF_PC_PLUS_4),
   .if_instruction (IF_instruction),
 
+  .stopclk        (stopclk),  //추가
+
   .id_PC          (ID_PC),
   .id_pc_plus_4   (ID_PC_PLUS_4),
   .id_instruction (ID_instruction)
@@ -210,9 +241,16 @@ ifid_reg m_ifid_reg(
 // Instruction Decode (ID)
 //////////////////////////////////////////////////////////////////////////////////
 
+///////////////Load stall위해 임시 wire 추가////////////////
+wire EX_memwrite_tmp;
+wire EX_regwrite_tmp;
+////////////////////////////////////////////////////////
+
 /* m_hazard: hazard detection unit */
 hazard m_hazard(
   // TODO: implement hazard detection unit & do wiring
+
+  /////////////////input/////////////////
   .ex_alu_result(EX_ALU_result),
   .ex_branch_target(EX_PC_branch_target),
   .ex_branch_taken(EX_taken),
@@ -222,10 +260,29 @@ hazard m_hazard(
   .id_reg_write(ID_reg_write_tmp), ///
   .if_instruction(IF_instruction_tmp),
 
+  //Load stall위한 input
+  .mem_opcode(MEM_opcode),
+  .ex_rs1(EX_rs1),
+  .ex_rs2(EX_rs2),
+  .mem_rd(MEM_rd),
+  .ex_opcode(EX_opcode),
+  .ex_memwrite(EX_memwrite_tmp),
+  .ex_regwrite(EX_regwrite_tmp),
+
+  .rstn(rstn),
+
+  .clk(clk),
+
+  /////////////////output//////////////
   .NEXT_PC(NEXT_PC),
   .id_mem_write_real(ID_mem_write),
   .id_reg_write_real(ID_reg_write),
-  .if_instruction_real(IF_instruction)
+  .if_instruction_real(IF_instruction),
+
+  //Load stall위한 output
+  .stopclk(stopclk),
+  .ex_memwrite_real(EX_memwrite),
+  .ex_regwrite_real(EX_regwrite)
 );
 
 /* m_control: control unit */
@@ -271,6 +328,8 @@ register_file m_register_file(
 idex_reg m_idex_reg(
   // TODO: Add flush or stall signal if it is needed
   .clk          (clk),
+  .stopclk      (stopclk),
+
   .id_PC        (ID_PC),
   .id_pc_plus_4 (ID_PC_PLUS_4),
   .id_jump      (ID_jump),
@@ -298,9 +357,9 @@ idex_reg m_idex_reg(
   .ex_aluop     (EX_aluop),
   .ex_alusrc    (EX_alusrc),
   .ex_memread   (EX_memread),
-  .ex_memwrite  (EX_memwrite),
+  .ex_memwrite  (EX_memwrite_tmp), ///고침
   .ex_memtoreg  (EX_memtoreg),
-  .ex_regwrite  (EX_regwrite),
+  .ex_regwrite  (EX_regwrite_tmp),  //고침
   .ex_sextimm   (EX_sextimm),
   .ex_funct7    (EX_funct7),
   .ex_funct3    (EX_funct3),
@@ -380,7 +439,7 @@ mux_3x1 alu_in_1_mux(
   .select(EX_ForwardA),
   .in1(EX_readdata1),
   .in2(MEM_alu_result),
-  .in3(WB_alu_result),
+  .in3(WB_write_data),  //WB_alu_result -> WB_write_data로 Load까지 cover가능
 
   .out(alu_in_1)
 );
@@ -389,7 +448,7 @@ mux_3x1 alu_in_2_mux(
   .select(EX_ForwardB),
   .in1(EX_ALU_in),
   .in2(MEM_alu_result),
-  .in3(WB_alu_result),
+  .in3(WB_write_data),  
 
   .out(alu_in_2)
 );
